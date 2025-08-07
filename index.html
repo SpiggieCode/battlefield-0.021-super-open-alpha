@@ -7,14 +7,30 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
   <canvas id="game" width="800" height="450"></canvas>
+  <div id="startOverlay" >
+  <h3>battlefield-0.021-super-open-alpha</h3>
+  <button id="startButton">Single Player</button>
+  <button disabled id="multiplayerButton">Multiplayer</button>
+</div>
   <div id="overlay">
     <div id="overlay-text">Level Complete!</div>
     <button id="btn-restart">Restart</button>
     <button id="btn-next">Next Level</button>
     <button id="btn-quit">Quit</button>
   </div>
-
+  <br>
+  <div id="instructions">
+    <h2>How to play:</h2>
+    <p>Use a and d, or arrow key left and right to move the character.</and></p>
+    <p>Use w or arrow key up to jump.</p>
+    <p>Use space bar to shoot.</p>
+    <p>Hold shift to run.</p>
+    <br>
+    <p>Reach the checkpoint and interact with e to complete the level.</p>
+    <br>
+  </div>
   <!-- your JS -->
   <script src="javascript.js"></script>
 </body>

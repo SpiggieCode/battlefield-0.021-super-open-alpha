@@ -19,8 +19,8 @@ const DEATH_TIME = 60;
 // Procedural generation parameters
 const MIN_PLATFORM_WIDTH = 80;
 const MAX_PLATFORM_WIDTH = 200;
-const FLOOR_GAP_MIN = 20;
-const FLOOR_GAP_MAX = 30;
+const FLOOR_GAP_MIN = 0;
+const FLOOR_GAP_MAX = 0;
 const PLATFORM_Y_RANGE = [200, 350];
 const BASE_ENEMY_COUNT = 3;
 const DIFFICULTY_INCREMENT = 0.1;
@@ -277,43 +277,91 @@ class Flag extends Entity {
 
 // -- Main Game Class --
 class Game {
+  // Cached canvas element
   static canvas = document.getElementById('game');
-  constructor() {
-    this.ctx = Game.canvas.getContext('2d');
-    this.canvasWidth = Game.canvas.width;
-    this.canvasHeight = Game.canvas.height;
-    this.cameraX = 0;
-    this.CAMERA_LAG = 0.1;
 
-    this.keys = new Array(256).fill(false);
+  constructor() {
+    // Canvas setup
+    this.ctx          = Game.canvas.getContext('2d');
+    this.canvasWidth  = Game.canvas.width;
+    this.canvasHeight = Game.canvas.height;
+    this.cameraX      = 0;
+    this.CAMERA_LAG   = 0.1;
+
+    // Input & shooting
+    this.keys     = new Array(256).fill(false);
     this.canShoot = true;
 
-    this.platforms = [];
-    this.enemies = [];
-    this.bullets = [];
-
-    this.player = new Player();
-    this.level = 1;
-    this.score = 0;
-    this.startTime = performance.now();
-    this.lastTime = this.startTime;
-
+    // Game entities
+    this.platforms  = [];
+    this.enemies    = [];
+    this.bullets    = [];
+    this.player     = null;
+    this.level      = 1;
+    this.score      = 0;
+    this.startTime  = null;
+    this.lastTime   = null;
     this.checkpoint = null;
-    this.flag = null;
+    this.flag       = null;
 
-    this.overlay = document.getElementById('overlay');
-    this.overlayText = document.getElementById('overlay-text');
+    // Overlays & UI
+    this.startOverlay = document.getElementById('startOverlay');
+    this.startButton  = document.getElementById('startButton');
+    this.overlay      = document.getElementById('overlay');
+    this.overlayText  = document.getElementById('overlay-text');
 
-    this.bindButtons();
+    // Initial state
+    this.gameState = 'start';                // 'start' | 'playing' | 'end'
+    this.overlay.style.visibility = 'hidden'; // Hide end-overlay
+    // startOverlay remains visible by default
+
+    // Bind UI buttons
+    this.startButton.onclick = this.startGame.bind(this);
+    document.getElementById('btn-restart').onclick = this.restartLevel.bind(this);
+    document.getElementById('btn-next')   .onclick = this.nextLevel.bind(this);
+    document.getElementById('btn-quit')   .onclick = () => location.reload();
+
+    // Input listeners
     this.initInput();
-    this.initLevel();
+
+    // Kick off the loop (will wait for 'playing' state)
     requestAnimationFrame(this.loop.bind(this));
   }
 
-  bindButtons() {
-    document.getElementById('btn-restart').onclick = this.restartLevel.bind(this);
-    document.getElementById('btn-next').onclick    = this.nextLevel.bind(this);
-    document.getElementById('btn-quit').onclick    = () => location.reload();
+  startGame() {
+    // Transition from start menu to gameplay
+    this.startOverlay.style.visibility = 'hidden';
+
+    // Reset core state
+    this.player     = new Player();
+    this.level      = 1;
+    this.score      = 0;
+    this.cameraX    = 0;
+    this.bullets.length = 0;
+    this.checkpoint     = null;
+
+    // Reset timers
+    this.startTime = performance.now();
+    this.lastTime  = this.startTime;
+
+    // Build first level
+    this.initLevel();
+
+    // Enter playing
+    this.gameState = 'playing';
+  }
+
+  loop(now) {
+    // Compute delta in seconds
+    const dt = (now - (this.lastTime || now)) / 1000;
+    this.lastTime = now;
+
+    if (this.gameState === 'playing') {
+      this.update(dt);
+      this.draw();
+    }
+
+    requestAnimationFrame(this.loop.bind(this));
   }
 
   initInput() {
@@ -342,47 +390,57 @@ class Game {
   initLevel() {
     const gen = new LevelGenerator(this.level, this);
     const lvl = gen.build();
-    this.platforms   = lvl.platforms;
-    this.enemies     = lvl.enemies;
-    this.flag        = lvl.flag;
-    this.checkpoint  = lvl.checkpoint;
+    this.platforms  = lvl.platforms;
+    this.enemies    = lvl.enemies;
+    this.flag       = lvl.flag;
+    this.checkpoint = lvl.checkpoint;
   }
 
   resetLevel() {
     if (this.checkpoint && this.checkpoint.reached) {
-      // Respawn at the checkpoint with a fully reset player state.
+      // Respawn at checkpoint
       this.player.x = this.respawnX;
       this.player.y = this.respawnY;
       this.player.health = MAX_HEALTH;
-      this.player.inv = 0;
-      this.player.velX = 0;
-      this.player.velY = 0;
+      this.player.inv    = 0;
+      this.player.velX   = 0;
+      this.player.velY   = 0;
       this.bullets.length = 0;
     } else {
+      // Full restart
       this.player = new Player();
       this.bullets.length = 0;
       this.score = Math.max(0, this.score - 200);
       this.startTime = performance.now();
+      this.lastTime  = this.startTime;
     }
   }
 
   restartLevel() {
+    // Hide end overlay and restart
     this.overlay.style.visibility = 'hidden';
-    this.player = new Player();
-    this.bullets.length = 0;
+    this.resetLevel();
     this.cameraX = 0;
-    this.startTime = performance.now();
-    this.lastTime = this.startTime;
     this.checkpoint = null;
     this.initLevel();
+    this.gameState = 'playing';
   }
 
   nextLevel() {
+    // Hide end overlay and advance
+    this.overlay.style.visibility = 'hidden';
     this.level++;
     this.score += Math.floor(this.level * 50);
     this.startTime = performance.now();
-    this.lastTime = this.startTime;
+    this.lastTime  = this.startTime;
+
+    this.player = new Player();
+    this.cameraX = 0;
+    this.bullets.length = 0;
+    this.checkpoint = null;
+
     this.initLevel();
+    this.gameState = 'playing';
   }
 
   saveAtCheckpoint() {
@@ -391,27 +449,33 @@ class Game {
   }
 
   update(dt) {
+    // Player controls & physics
     this.player.handleInput(this.keys);
     this.player.update(this.platforms);
 
+    // Enemies behavior
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const res = this.enemies[i].update(this.platforms, this.enemies, this.player);
       if (res === 'reset') { this.resetLevel(); return; }
       if (!this.enemies[i].alive) this.enemies.splice(i, 1);
     }
 
+    // Bullets movement
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const res = this.bullets[i].update(this.cameraX, this.enemies, this.player);
       if (res === 'reset') { this.resetLevel(); return; }
       if (!res) this.bullets.splice(i, 1);
     }
 
+    // Checkpoint
     if (this.checkpoint) this.checkpoint.update(this.player, this);
+
+    // Flag / level complete
     if (this.keys[69] && rectIntersect(this.player, this.flag)) {
       this.showOverlay();
     }
 
-    // camera follow
+    // Camera follow
     const targetX = this.player.x - this.canvasWidth/2 + this.player.width/2;
     this.cameraX += (targetX - this.cameraX) * this.CAMERA_LAG;
     this.cameraX = Math.max(0, Math.min(this.cameraX, WORLD_WIDTH - this.canvasWidth));
@@ -421,40 +485,37 @@ class Game {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
+    // World draw
     ctx.save();
     ctx.translate(-this.cameraX, 0);
+
     ctx.fillStyle = '#2ecc71'; this.platforms.forEach(p => p.draw(ctx));
     this.flag.draw(ctx);
     ctx.fillStyle = '#e74c3c'; this.player.draw(ctx);
     ctx.fillStyle = '#34495e'; this.enemies.forEach(e => e.draw(ctx));
     ctx.fillStyle = '#8e44ad'; this.bullets.forEach(b => b.draw(ctx));
     if (this.checkpoint) this.checkpoint.draw(ctx);
+
     ctx.restore();
 
-    // health
+    // HUD
+    // Health
     for (let i = 0; i < MAX_HEALTH; i++) {
       ctx.fillStyle = i < this.player.health ? '#e74c3c' : '#aaa';
       ctx.fillRect(10 + i*20, 10, 15, 15);
     }
-
-    // in-canvas HUD
-    const elapsed = Math.floor((performance.now() - this.startTime)/1000);
+    // Score & time
+    const elapsed = Math.floor((performance.now() - this.startTime) / 1000);
     ctx.font = '18px Arial'; ctx.fillStyle = '#000';
     ctx.fillText(`Score: ${this.score}`, 10, 40);
     ctx.fillText(`Time: ${elapsed}s`, 10, 60);
   }
 
   showOverlay() {
+    // Display end-menu and freeze
     this.overlayText.textContent = `Level ${this.level} Complete!`;
     this.overlay.style.visibility = 'visible';
-  }
-
-  loop(now) {
-    const dt = (now - this.lastTime)/1000;
-    this.lastTime = now;
-    this.update(dt);
-    this.draw();
-    requestAnimationFrame(this.loop.bind(this));
+    this.gameState = 'end';
   }
 }
 

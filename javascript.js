@@ -349,19 +349,30 @@ class Game {
   }
 
   resetLevel() {
-    if (this.checkpoint && this.checkpoint.reached) {
+    const fromOverlay = this.overlay.style.visibility === 'visible';
+    this.overlay.style.visibility = 'hidden';
+
+    if (!fromOverlay && this.checkpoint && this.checkpoint.reached) {
       this.player.x = this.respawnX;
       this.player.y = this.respawnY;
     } else {
       this.player = new Player();
+      this.cameraX = 0;
       this.bullets.length = 0;
-      this.score = Math.max(0, this.score - 200);
+      if (this.checkpoint) this.checkpoint.reached = false;
+      if (!fromOverlay) {
+        this.score = Math.max(0, this.score - 200);
+      }
       this.startTime = performance.now();
     }
   }
 
   nextLevel() {
+    this.overlay.style.visibility = 'hidden';
     this.level++;
+    this.player = new Player();
+    this.cameraX = 0;
+    this.bullets.length = 0;
     this.score += Math.floor(this.level * 50);
     this.startTime = performance.now();
     this.lastTime = this.startTime;

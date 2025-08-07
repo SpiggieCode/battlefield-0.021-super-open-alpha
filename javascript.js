@@ -350,8 +350,14 @@ class Game {
 
   resetLevel() {
     if (this.checkpoint && this.checkpoint.reached) {
+      // Respawn at the checkpoint with a fully reset player state.
       this.player.x = this.respawnX;
       this.player.y = this.respawnY;
+      this.player.health = MAX_HEALTH;
+      this.player.inv = 0;
+      this.player.velX = 0;
+      this.player.velY = 0;
+      this.bullets.length = 0;
     } else {
       this.player = new Player();
       this.bullets.length = 0;
@@ -384,9 +390,9 @@ class Game {
     }
 
     for (let i = this.bullets.length - 1; i >= 0; i--) {
-      if (!this.bullets[i].update(this.cameraX, this.enemies, this.player)) {
-        this.bullets.splice(i, 1);
-      }
+      const res = this.bullets[i].update(this.cameraX, this.enemies, this.player);
+      if (res === 'reset') { this.resetLevel(); return; }
+      if (!res) this.bullets.splice(i, 1);
     }
 
     if (this.checkpoint) this.checkpoint.update(this.player, this);

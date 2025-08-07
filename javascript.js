@@ -311,7 +311,7 @@ class Game {
   }
 
   bindButtons() {
-    document.getElementById('btn-restart').onclick = this.resetLevel.bind(this);
+    document.getElementById('btn-restart').onclick = this.restartLevel.bind(this);
     document.getElementById('btn-next').onclick    = this.nextLevel.bind(this);
     document.getElementById('btn-quit').onclick    = () => location.reload();
   }
@@ -364,6 +364,17 @@ class Game {
       this.score = Math.max(0, this.score - 200);
       this.startTime = performance.now();
     }
+  }
+
+  restartLevel() {
+    this.overlay.style.visibility = 'hidden';
+    this.player = new Player();
+    this.bullets.length = 0;
+    this.cameraX = 0;
+    this.startTime = performance.now();
+    this.lastTime = this.startTime;
+    this.checkpoint = null;
+    this.initLevel();
   }
 
   nextLevel() {
